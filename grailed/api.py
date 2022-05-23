@@ -105,8 +105,6 @@ class GrailedSearch(Grailed):
             listings.append(grailed_listing)
         return listings
 
-
-
     def _get_listings(self, designer:str):
         hits = 100
         master_list = []
