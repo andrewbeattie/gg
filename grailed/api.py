@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from typing import List
 from dataclasses import dataclass
@@ -6,7 +7,7 @@ from dataclasses import dataclass
 url = os.getenv("URL")
 
 @dataclass
-class GrailedItem:
+class GrailedListing:
     id: int
     designer:str
     color: str
@@ -14,6 +15,7 @@ class GrailedItem:
     size: str
     condition:str
     sold_price: float
+    ask_price: float
 
 class Grailed(requests.Session):
     def __init__(self):
@@ -44,7 +46,7 @@ class GrailedFilters:
         filters_list = []
         for key, values in self.filters.items():
             filters_list.append([f"{key}:{value}" for value in values])
-        return str(filters_list)
+        return json.dumps(filters_list)
 
 class GrailedSearch(Grailed):
     def __init__(self, pages=range(int(os.getenv("MIN_PAGES", "0")), int(os.getenv("MAX_PAGES", "1")))):
@@ -60,27 +62,49 @@ class GrailedSearch(Grailed):
         self.category_size.append(f"{category}.{size}")
 
     def _params(self):
-        facetFilters = GrailedFilters()
+        self.facetFilters = GrailedFilters()
         if self.designers:
-            facetFilters.add_filters(key="designers.name", values=self.designers)
+            self.facetFilters.add_filters(key="designers.name", values=self.designers)
         if self.category_size:
-            facetFilters.add_filters(key="category_size", values=self.category_size)
+            self.facetFilters.add_filters(key="category_size", values=self.category_size)
+        str(self.facetFilters)
 
-    def _query(self):
+    def query(self, sold=False):
+        self._params()
         hits = 100
-        master_list = []
+        self.listings = []
         for page in self.pages:
-            params = f'page={page}&hitsPerPage={hits}&facetFilters=[["category_size:footwear.6.5","category_size:footwear.7","category_size:footwear.7.5","category_size:outerwear.s","category_size:outerwear.xs","category_size:outerwear.xxs"],["designers.name:{designer}"]]'
-            r = self.get(url + '/1/indexes/Listing_sold_production/', params=params)
+            params = f'page={page}&hitsPerPage={hits}&facetFilters={str(self.facetFilters)}'
+            if sold:
+                r = self.get(url + '/1/indexes/Listing_sold_production/', params=params)
+            else:
+                r = self.get(url + '/1/indexes/Listing_production/', params=params)
             if r.status_code == 200:
                 data = r.json()
                 page_listings = data['hits']
-                master_list.extend(page_listings)
+                self.listings.extend(page_listings)
                 if len(data["hits"]) < 100:
                     break
             else:
                 print(self.r.status_code)
-        return master_list
+        return self.listings
+
+    def itemize(self):
+        listings = []
+        for listing in self.listings:
+            grailed_listing = GrailedListing(
+                id=listing.get("id"),
+                designer=listing.get("designer", {"name": None}).get("name"),
+                color=listing.get("color"),
+                category=listing.get("category"),
+                size=listing.get("size"),
+                condition=listing.get("condition"),
+                sold_price=listing.get("sold_price"),
+                ask_price=listing.get("price")
+            )
+            listings.append(grailed_listing)
+        return listings
+
 
 
     def _get_listings(self, designer:str):
@@ -99,7 +123,7 @@ class GrailedSearch(Grailed):
                 print(self.r.status_code)
         return master_list
 
-    def query(self):
+    def _query(self):
         for designer in self.designers:
             print(designer)
             self.data.extend(self._get_listings(designer))
