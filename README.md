@@ -6,6 +6,17 @@ Simple method for querying [Grailed](https://www.grailed.com/). Currently it sup
 
 `pip install git+https://github.com/andrewbeattie/gg.git`
 
+Add enviroment variables.
+
+```
+URL=https://mnrwefss2q-dsn.algolia.net
+API_KEY=api_key
+APP_ID=app_id
+MIN_PAGES=0
+MAX_PAGES=5
+HITS_PER_PAGE=100
+```
+
 ## Usage
 
 ```
